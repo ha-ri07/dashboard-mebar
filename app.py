@@ -109,8 +109,6 @@ st.markdown(
         border-top-right-radius: 0 !important;
     }}
 
-    [data-testid="stSidebar"] * {{
-        color: #FFFFFF;
     }}
 
     [data-testid="stSidebar"] [data-testid="stRadio"] label {{
