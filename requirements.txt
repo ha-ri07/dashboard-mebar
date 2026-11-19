@@ -1,4 +1,6 @@
-streamlit
+streamlit>=1.50
 pandas
 plotly
+pyarrow
+python-calamine
 openpyxl
