@@ -6,10 +6,10 @@ __pycache__/
 *.pyc
 
 # Archivos con datos reservados
-data/
-*.xlsx
-*.xls
-*.csv
+#data/
+#*.xlsx
+#*.xls
+#*.csv
 
 # Credenciales
 .env
