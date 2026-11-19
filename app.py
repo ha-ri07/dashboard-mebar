@@ -89,6 +89,11 @@ st.markdown(
     /* ============================================================
        SIDEBAR: logo pegado a los bordes superior e izquierdo
        ============================================================ */
+    /* ============================================================
+       SIDEBAR: Logo, fondos y colores de filtros/buscadores
+       ============================================================ */
+    
+    /* 1. Fondo del sidebar y eliminar padding superior para el logo */
     [data-testid="stSidebar"] {{
         background: linear-gradient(180deg, {AZUL} 0%, #0B223D 100%);
         padding-top: 0 !important;
@@ -109,13 +114,44 @@ st.markdown(
         border-top-right-radius: 0 !important;
     }}
 
+    /* 2. Color de las ETIQUETAS de los filtros (ej: "Periodo de consulta") */
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] h3 {{
+        color: #EAF1F8 !important; /* Blanco azulado suave y elegante */
+        font-weight: 600 !important;
+        font-size: 13px !important;
+        letter-spacing: 0.5px !important;
     }}
 
+    /* 3. Color del TEXTO que escribe el usuario o la fecha seleccionada */
+    [data-testid="stSidebar"] input,
+    [data-testid="stSidebar"] [data-baseweb="input"] input,
+    [data-testid="stSidebar"] [data-baseweb="select"] div {{
+        color: #FFFFFF !important; /* Blanco puro para máxima legibilidad */
+        font-weight: 500 !important;
+    }}
+
+    /* 4. Color del TEXTO FANTASMA (placeholder) ej: "Escribe el número..." */
+    [data-testid="stSidebar"] input::placeholder {{
+        color: #8FA3BC !important; /* Gris azulado para que se note que es una guía */
+        opacity: 1 !important;
+    }}
+
+    /* 5. Color de las OPCIONES cuando abres el desplegable (multiselect) */
+    /* Streamlit usa un fondo blanco para el menú desplegable, así que el texto debe ser oscuro */
+    [data-testid="stSidebar"] [role="listbox"] div,
+    [data-testid="stSidebar"] [data-baseweb="popover"] div {{
+        color: #142B45 !important; /* Azul oscuro institucional para leer bien sobre blanco */
+    }}
+
+    /* 6. Estilo de los botones de radio (Navegación entre pantallas) */
     [data-testid="stSidebar"] [data-testid="stRadio"] label {{
         background: rgba(255,255,255,0.06);
         border-radius: 9px;
         padding: 8px 10px;
         margin-bottom: 5px;
+        color: #FFFFFF !important;
     }}
 
     h1, h2, h3 {{
