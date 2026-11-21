@@ -511,12 +511,20 @@ def mostrar_tabla(df, columnas, nombres=None):
 def construir_resumen_funcionarios(_ops, firma, columna_funcionario):
     """Resumen por funcionario. `_ops` no se hashea; `firma` identifica los filtros activos."""
     base = _ops.copy()
-    base["FUNCIONARIO"] = base[columna_funcionario].fillna("No registrado").astype(str).str.strip()
-    base["CEDULA"] = (base["IDENTIFICACION"].fillna("").astype(str).str.replace(r"\.0$", "", regex=True).str.strip()
+    base["FUNCIONARIO"] = (base[columna_funcionario].astype(object).where(
+        base[columna_funcionario].notna(), "No registrado"
+    ).astype(str).str.strip())
+    base["CEDULA"] = (base["IDENTIFICACION"].astype(object).where(
+        base["IDENTIFICACION"].notna(), ""
+    ).astype(str).str.replace(r"\.0$", "", regex=True).str.strip()
                       if "IDENTIFICACION" in base.columns else "")
-    base["ESTACION_RESUMEN"] = (base["ESTACION"].fillna("No especificada").astype(str).str.strip()
+    base["ESTACION_RESUMEN"] = (base["ESTACION"].astype(object).where(
+        base["ESTACION"].notna(), "No especificada"
+    ).astype(str).str.strip()
                                 if "ESTACION" in base.columns else "No especificada")
-    tipo = (base["TIPO DE CAPTURA"].fillna("").astype(str).str.casefold()
+    tipo = (base["TIPO DE CAPTURA"].astype(object).where(
+        base["TIPO DE CAPTURA"].notna(), ""
+    ).astype(str).str.casefold()
             if "TIPO DE CAPTURA" in base.columns else pd.Series("", index=base.index))
     valor = (pd.to_numeric(base["TOTAL TIPO DE CAPTURA"], errors="coerce").fillna(0)
              if "TOTAL TIPO DE CAPTURA" in base.columns else pd.Series(0, index=base.index))
@@ -1888,7 +1896,9 @@ elif pantalla == "Gestión Operativa":
             titulo_seccion("Distribución por IND CUADRANTE")
             if "IND CUADRANTE" in ops.columns:
                 campo = ops.copy()
-                campo["IND CUADRANTE"] = campo["IND CUADRANTE"].fillna("No especificado").astype(str).str.strip()
+                campo["IND CUADRANTE"] = campo["IND CUADRANTE"].astype(object).where(
+                    campo["IND CUADRANTE"].notna(), "No especificado"
+                ).astype(str).str.strip()
                 campo.loc[campo["IND CUADRANTE"] == "", "IND CUADRANTE"] = "No especificado"
                 if "TOTAL TIPO DE CAPTURA" in campo.columns:
                     agregado = campo.groupby("IND CUADRANTE", as_index=False)["TOTAL TIPO DE CAPTURA"].sum().rename(
@@ -1908,7 +1918,9 @@ elif pantalla == "Gestión Operativa":
             titulo_seccion("Actividad operativa por estación")
             if "ESTACION" in ops.columns and "TOTAL TIPO DE CAPTURA" in ops.columns:
                 por_estacion = ops.copy()
-                por_estacion["ESTACION"] = por_estacion["ESTACION"].fillna("No especificada").astype(str)
+                por_estacion["ESTACION"] = por_estacion["ESTACION"].astype(object).where(
+                    por_estacion["ESTACION"].notna(), "No especificada"
+                ).astype(str)
                 por_estacion["TOTAL TIPO DE CAPTURA"] = pd.to_numeric(por_estacion["TOTAL TIPO DE CAPTURA"],
                                                                       errors="coerce").fillna(0)
                 est = por_estacion.groupby("ESTACION", as_index=False)["TOTAL TIPO DE CAPTURA"].sum().rename(
@@ -1947,7 +1959,9 @@ elif pantalla == "Gestión Operativa":
 
         titulo_seccion("Capturas por funcionario · Flagrancia y orden judicial")
         if "TIPO DE CAPTURA" in ops.columns:
-            tipo = ops["TIPO DE CAPTURA"].fillna("").astype(str).str.casefold()
+            tipo = ops["TIPO DE CAPTURA"].astype(object).where(
+                ops["TIPO DE CAPTURA"].notna(), ""
+            ).astype(str).str.casefold()
             subset = ops[tipo.str.contains("flagrancia|orden judicial", regex=True, na=False)].copy()
             if not subset.empty:
                 subset["TIPO_NORMALIZADO"] = subset["TIPO DE CAPTURA"].astype(str).str.casefold().apply(
@@ -1963,8 +1977,11 @@ elif pantalla == "Gestión Operativa":
                         resumen_func = subset.groupby("TIPO_NORMALIZADO")[columna_metrica].sum().reset_index(
                             name="TOTAL")
                     if "GR APELLIDOS Y NOMBRES POLICIA_1" in resumen_func.columns:
-                        resumen_func["FUNCIONARIO"] = resumen_func["GR APELLIDOS Y NOMBRES POLICIA_1"].fillna(
-                            "No registrado").astype(str)
+                        resumen_func["FUNCIONARIO"] = resumen_func[
+                            "GR APELLIDOS Y NOMBRES POLICIA_1"
+                        ].astype(object).where(
+                            resumen_func["GR APELLIDOS Y NOMBRES POLICIA_1"].notna(), "No registrado"
+                        ).astype(str)
                         fig = px.bar(resumen_func, x="FUNCIONARIO", y="TOTAL", color="TIPO_NORMALIZADO",
                                      barmode="group", labels={"TOTAL": "Total tipo de captura",
                                                               "FUNCIONARIO": "Grado, nombres y apellidos",
@@ -1986,7 +2003,9 @@ elif pantalla == "Gestión Operativa":
         titulo_seccion("Distribución por delito de captura")
         if "DELITO DE CAPTURA" in ops.columns:
             delitos_cap = ops.copy()
-            delitos_cap["DELITO DE CAPTURA"] = delitos_cap["DELITO DE CAPTURA"].fillna("No especificado").astype(str)
+            delitos_cap["DELITO DE CAPTURA"] = delitos_cap["DELITO DE CAPTURA"].astype(object).where(
+                delitos_cap["DELITO DE CAPTURA"].notna(), "No especificado"
+            ).astype(str)
             metrica_delito = "TOTAL DELITO DE CAPTURA" if "TOTAL DELITO DE CAPTURA" in delitos_cap.columns else "TOTAL TIPO DE CAPTURA" if "TOTAL TIPO DE CAPTURA" in delitos_cap.columns else None
             if metrica_delito:
                 delitos_cap[metrica_delito] = pd.to_numeric(delitos_cap[metrica_delito], errors="coerce").fillna(0)
@@ -2005,8 +2024,9 @@ elif pantalla == "Gestión Operativa":
         titulo_seccion("Tipos de actividad operativa")
         if "ACTIVIDAD OPERATIVA" in ops.columns:
             actividades = ops.copy()
-            actividades["ACTIVIDAD OPERATIVA"] = actividades["ACTIVIDAD OPERATIVA"].fillna("No especificada").astype(
-                str)
+            actividades["ACTIVIDAD OPERATIVA"] = actividades["ACTIVIDAD OPERATIVA"].astype(object).where(
+                actividades["ACTIVIDAD OPERATIVA"].notna(), "No especificada"
+            ).astype(str)
             metrica_actividad = "TOTAL ACTIVIDAD OPERATIVA" if "TOTAL ACTIVIDAD OPERATIVA" in actividades.columns else "TOTAL TIPO DE CAPTURA" if "TOTAL TIPO DE CAPTURA" in actividades.columns else None
             if metrica_actividad:
                 actividades[metrica_actividad] = pd.to_numeric(actividades[metrica_actividad], errors="coerce").fillna(
@@ -2116,11 +2136,17 @@ elif pantalla == "Registro Delictivo":
         else:
             tabla_funcionarios["ESTACIÓN DEL REGISTRO"] = tabla_funcionarios.get("ESTACION", "")
 
-        tabla_funcionarios["GRADO Y NOMBRE"] = (tabla_funcionarios.get("GRADO", "").fillna("").astype(
-            str).str.strip() + " " + tabla_funcionarios.get("NOMBRE", "").fillna("").astype(
-            str).str.strip()).str.strip()
+        grado_funcionario = tabla_funcionarios.get("GRADO", pd.Series("", index=tabla_funcionarios.index))
+        nombre_funcionario = tabla_funcionarios.get("NOMBRE", pd.Series("", index=tabla_funcionarios.index))
+        tabla_funcionarios["GRADO Y NOMBRE"] = (
+            grado_funcionario.astype(object).where(grado_funcionario.notna(), "").astype(str).str.strip()
+            + " "
+            + nombre_funcionario.astype(object).where(nombre_funcionario.notna(), "").astype(str).str.strip()
+        ).str.strip()
         tabla_funcionarios["CÉDULA"] = tabla_funcionarios["_ID_CLAVE"].astype(str)
-        tabla_funcionarios["ESTACIÓN"] = tabla_funcionarios["ESTACIÓN DEL REGISTRO"].fillna("").astype(str).str.strip()
+        tabla_funcionarios["ESTACIÓN"] = tabla_funcionarios["ESTACIÓN DEL REGISTRO"].astype(object).where(
+            tabla_funcionarios["ESTACIÓN DEL REGISTRO"].notna(), ""
+        ).astype(str).str.strip()
         tabla_funcionarios = tabla_funcionarios.sort_values("CANTIDAD DELITOS", ascending=False)
     else:
         tabla_funcionarios = pd.DataFrame(
