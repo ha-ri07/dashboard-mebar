@@ -9,7 +9,15 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 
-from utils.carga import cargar_datos, cargar_rnmc, cargar_turnos, cargar_permisos
+from utils.carga import (
+    cargar_antecedentes_persona,
+    cargar_antecedentes_vehiculo,
+    cargar_delitos_operatividad,
+    cargar_permisos,
+    cargar_rnmc,
+    cargar_tahum,
+    cargar_turnos,
+)
 
 # ============================================================
 # CONFIGURACIÓN GENERAL
@@ -492,7 +500,11 @@ def mostrar_tabla(df, columnas, nombres=None):
     vista = df[existentes].copy()
     if nombres:
         vista = vista.rename(columns={k: v for k, v in nombres.items() if k in vista.columns})
-    st.dataframe(vista, width="stretch", hide_index=True)
+    limite_filas = 2000
+    truncada = len(vista) > limite_filas
+    st.dataframe(vista.head(limite_filas), width="stretch", hide_index=True)
+    if truncada:
+        st.caption(f"Se muestran {limite_filas:,} de {len(vista):,} registros.")
 
 
 @st.cache_resource(show_spinner=False, max_entries=10)
@@ -609,11 +621,19 @@ def header_principal_con_reloj():
 # ============================================================
 
 @st.cache_resource(show_spinner="Cargando y optimizando información...")
-def cargar_y_preparar():
-    delitos, operatividad, tahum, vehiculos = cargar_datos()
+def cargar_y_preparar(pantalla):
+    pantalla_normalizada = str(pantalla).strip().casefold()
+    es_panel_principal = pantalla_normalizada == "panel principal"
+    es_seguimiento = pantalla_normalizada.startswith("seguimiento activ")
+
+    delitos, operatividad = cargar_delitos_operatividad()
+    base_tahum = limpiar_dataframe(cargar_tahum())
+    tahum = (limpiar_dataframe(cargar_antecedentes_persona())
+             if es_panel_principal else pd.DataFrame())
+    vehiculos = pd.DataFrame()
 
     # RNMC: normaliza nombres de columna (quita tildes) y prepara cédula y fecha
-    rnmc = limpiar_dataframe(cargar_rnmc())
+    rnmc = pd.DataFrame(columns=["_ID_CLAVE", "FECHA_RNMC"])
     if not rnmc.empty:
         rnmc.columns = [
             re.sub(r"\s+", "_",
@@ -629,7 +649,8 @@ def cargar_y_preparar():
         rnmc = pd.DataFrame(columns=["_ID_CLAVE", "FECHA_RNMC"])
 
     # TURNOS: cada registro es un turno cumplido por el funcionario
-    turnos = limpiar_dataframe(cargar_turnos())
+    turnos = (limpiar_dataframe(cargar_turnos())
+              if es_seguimiento else pd.DataFrame())
     if not turnos.empty:
         mapa_columnas_turnos = {
             "unidad": "UNIDAD",
@@ -650,7 +671,7 @@ def cargar_y_preparar():
                     "CODIGO_CUADRANTE", "CARGO_SIATH"):
             if col not in turnos.columns:
                 turnos[col] = ""
-            turnos[col] = turnos[col].fillna("").astype(str).str.strip()
+            turnos[col] = turnos[col].astype(object).where(turnos[col].notna(), "").astype(str).str.strip()
 
         turnos = preparar_identificacion(turnos, "IDENTIFICACION_TURNO")
         if "FECHA_TURNO" in turnos.columns:
@@ -671,7 +692,8 @@ def cargar_y_preparar():
         turnos = pd.DataFrame(columns=["_ID_CLAVE", "FECHA_DIA"])
 
     # PERMISOS: novedades por funcionario (solo filas donde NO estuvo en servicio)
-    permisos = limpiar_dataframe(cargar_permisos())
+    permisos = (limpiar_dataframe(cargar_permisos())
+                if es_seguimiento else pd.DataFrame())
     if not permisos.empty:
         mapa_columnas_permisos = {
             "unidad": "UNIDAD",
@@ -697,7 +719,9 @@ def cargar_y_preparar():
                     "CODIGO_CUADRANTE", "DESCRIPCION_NOVEDAD", "CARGO_SIATH", "ROL_SIATH"):
             if col not in permisos.columns:
                 permisos[col] = ""
-            permisos[col] = reparar_serie(permisos[col].fillna("").astype(str).str.strip())
+            permisos[col] = reparar_serie(
+                permisos[col].astype(object).where(permisos[col].notna(), "").astype(str).str.strip()
+            )
 
         # Un permiso = fila donde el funcionario NO estuvo en servicio
         if "EN_SERVICIO" in permisos.columns:
@@ -717,6 +741,7 @@ def cargar_y_preparar():
     delitos = limpiar_dataframe(delitos)
     operatividad = limpiar_dataframe(operatividad)
     tahum = limpiar_dataframe(tahum)
+    base_tahum = limpiar_dataframe(base_tahum)
     vehiculos = limpiar_dataframe(vehiculos)
 
     delitos = preparar_fecha(delitos)
@@ -724,7 +749,7 @@ def cargar_y_preparar():
 
     delitos = preparar_identificacion(delitos, "IDENTIFICACION")
     operatividad = preparar_identificacion(operatividad, "IDENTIFICACION")
-    tahum = preparar_identificacion(tahum, "Identificacion")
+    base_tahum = preparar_identificacion(base_tahum, "Identificacion")
 
     # Cédula del funcionario que hizo la consulta, precalculada una sola vez
     # (evita normalizar tablas enormes cada vez que se abre el modal de antecedentes).
@@ -749,8 +774,8 @@ def cargar_y_preparar():
     columnas_funcionario = [
         "_ID_CLAVE", "GR", "APELLIDOS Y NOMBRES", "TIEMPO_UNIDAD", "TIEMPO_CARGO"
     ]
-    if not tahum.empty and "_ID_CLAVE" in tahum.columns:
-        base_funcionarios = tahum.copy()
+    if not base_tahum.empty and "_ID_CLAVE" in base_tahum.columns:
+        base_funcionarios = base_tahum.copy()
         for columna in columnas_funcionario:
             if columna not in base_funcionarios.columns:
                 base_funcionarios[columna] = ""
@@ -761,7 +786,9 @@ def cargar_y_preparar():
         })
         for columna in ["GRADO", "NOMBRE_TAHUM", "TIEMPO_UNIDAD", "TIEMPO_CARGO"]:
             base_funcionarios[columna] = (
-                base_funcionarios[columna].fillna("").astype(str).str.strip()
+                base_funcionarios[columna].astype(object).where(
+                    base_funcionarios[columna].notna(), ""
+                ).astype(str).str.strip()
             )
         base_funcionarios = base_funcionarios[
             base_funcionarios["_ID_CLAVE"].astype(str).str.strip().ne("")
@@ -789,10 +816,13 @@ def cargar_y_preparar():
             temp_df = df[cols_to_keep].copy()
             temp_df = temp_df.rename(columns={col_nom: "NOMBRE_REPORTE"})
 
-            temp_df["_ID_CLAVE"] = temp_df["_ID_CLAVE"].fillna("").astype(str).str.strip()
-            temp_df["NOMBRE_REPORTE"] = temp_df["NOMBRE_REPORTE"].fillna("").astype(str).str.strip()
+            temp_df["_ID_CLAVE"] = temp_df["_ID_CLAVE"].astype(object).where(
+                temp_df["_ID_CLAVE"].notna(), "").astype(str).str.strip()
+            temp_df["NOMBRE_REPORTE"] = temp_df["NOMBRE_REPORTE"].astype(object).where(
+                temp_df["NOMBRE_REPORTE"].notna(), "").astype(str).str.strip()
             if "ESTACION" in temp_df.columns:
-                temp_df["ESTACION"] = temp_df["ESTACION"].fillna("").astype(str).str.strip()
+                temp_df["ESTACION"] = temp_df["ESTACION"].astype(object).where(
+                    temp_df["ESTACION"].notna(), "").astype(str).str.strip()
 
             temp_df = temp_df[temp_df["_ID_CLAVE"] != ""].drop_duplicates(subset=["_ID_CLAVE"], keep="first")
             registros_list.append(temp_df)
@@ -829,14 +859,49 @@ def cargar_y_preparar():
     return delitos, operatividad, tahum, vehiculos, maestros, rnmc, turnos, permisos
 
 
-inicio_carga = perf_counter()
-try:
-    delitos, operatividad, tahum, vehiculos, maestros, rnmc, turnos, permisos = cargar_y_preparar()
-except Exception as error:
-    st.error("No fue posible cargar los archivos de información.")
-    st.exception(error)
-    st.stop()
-tiempo_carga = perf_counter() - inicio_carga
+def _precalcular_id_funcionario(df):
+    """Precalcula la identificación del funcionario para filtrar antecedentes."""
+    col = next(
+        (c for c in df.columns
+         if ("CCFuncionario" in c or "Funcionario" in c or "Cedula" in c or "Identificacion" in c)
+         and "Fisica" not in c),
+        None,
+    )
+    df["_ID_FUNC"] = normalizar_serie_id(df[col]) if col else ""
+
+
+def _asegurar_antecedentes_bajo_demanda():
+    """Carga antecedentes solo cuando se abre el diálogo correspondiente."""
+    global tahum, vehiculos
+    if tahum.empty:
+        tahum = limpiar_dataframe(cargar_antecedentes_persona())
+        _precalcular_id_funcionario(tahum)
+        tahum["_ID_CLAVE_ANT"] = normalizar_serie_id(
+            tahum["FuncionarioFisica"] if "FuncionarioFisica" in tahum.columns else ""
+        )
+    if vehiculos.empty:
+        vehiculos = limpiar_dataframe(cargar_antecedentes_vehiculo())
+        _precalcular_id_funcionario(vehiculos)
+
+
+def _asegurar_rnmc_bajo_demanda():
+    """Carga y prepara RNMC únicamente al abrir el diálogo de comparendos."""
+    global rnmc
+    if not rnmc.empty and "FECHA_RNMC" in rnmc.columns:
+        return
+    rnmc = limpiar_dataframe(cargar_rnmc())
+    if rnmc.empty:
+        rnmc = pd.DataFrame(columns=["_ID_CLAVE", "FECHA_RNMC"])
+        return
+    rnmc.columns = [
+        re.sub(r"\s+", "_",
+               unicodedata.normalize("NFKD", str(c)).encode("ascii", "ignore").decode().strip().upper())
+        for c in rnmc.columns
+    ]
+    rnmc = preparar_identificacion(rnmc, "IDENTIFICACION_POLICIA")
+    rnmc["FECHA_RNMC"] = (pd.to_datetime(rnmc["FECHA_HECHOS"], errors="coerce", dayfirst=True)
+                           if "FECHA_HECHOS" in rnmc.columns else pd.NaT)
+
 
 # ============================================================
 # MENÚ LATERAL Y FILTROS
@@ -864,6 +929,15 @@ with st.sidebar:
                         ["Panel principal", "Gestión Operativa", "Registro Delictivo",
                          "Seguimiento activación al servicio"],
                         label_visibility="collapsed")
+
+    inicio_carga = perf_counter()
+    try:
+        delitos, operatividad, tahum, vehiculos, maestros, rnmc, turnos, permisos = cargar_y_preparar(pantalla)
+    except Exception as error:
+        st.error("No fue posible cargar los archivos de informaciÃ³n.")
+        st.exception(error)
+        st.stop()
+    tiempo_carga = perf_counter() - inicio_carga
 
     st.markdown("---")
     st.markdown("### FILTROS GENERALES")
@@ -1178,6 +1252,7 @@ def mostrar_ranking_tarjetas(df, metrica, categoria, titulo_vacio):
 
 @st.dialog("📋 Detalle de Antecedentes", width="medium")
 def mostrar_dialogo_antecedentes(id_clave, nombre_funcionario):
+    _asegurar_antecedentes_bajo_demanda()
     st.markdown(
         """
         <style>
@@ -1316,6 +1391,7 @@ def obtener_rnmc_funcionario(id_clave):
 
 @st.dialog("📄 Comparendos RNMC", width="large")
 def mostrar_dialogo_rnmc(id_clave, nombre_funcionario):
+    _asegurar_rnmc_bajo_demanda()
     st.markdown(
         f"""
         <div style="background: linear-gradient(135deg, #12345A 0%, #1D4C78 100%); padding: 18px 22px; border-radius: 12px; margin-bottom: 18px; border-left: 5px solid #C5A45B; box-shadow: 0 4px 12px rgba(18,52,90,0.25);">
@@ -1701,9 +1777,10 @@ elif pantalla == "Gestión Operativa":
             else:
                 st.caption("Sin funcionario seleccionado · se muestran los datos de todos los funcionarios.")
 
+        resumen_mostrar = resumen.head(2000)
         evento_tabla = st.dataframe(
-            resumen, width="stretch", hide_index=True,
-            height=min(440, 46 + 35 * min(len(resumen), 11)),
+            resumen_mostrar, width="stretch", hide_index=True,
+            height=min(440, 46 + 35 * min(len(resumen_mostrar), 11)),
             on_select="rerun", selection_mode="single-row", key="tabla_funcionarios_operatividad",
             column_config={
                 "Grado, nombres y apellidos": st.column_config.TextColumn("Grado, nombres y apellidos", width="large"),
@@ -2080,6 +2157,7 @@ elif pantalla == "Registro Delictivo":
             columns={"GRADO Y NOMBRE": "Grado, nombres y apellidos", "CÉDULA": "Cédula", "ESTACIÓN": "Estación",
                      "CANTIDAD DELITOS": "Cantidad de delitos"})
 
+        vista_funcionarios = vista_funcionarios.head(2000)
         evento_tabla_g = st.dataframe(vista_funcionarios, width="stretch", hide_index=True,
                                       height=min(440, 46 + 35 * min(len(vista_funcionarios), 11)), on_select="rerun",
                                       selection_mode="single-row", key="tabla_funcionarios_gestion_delictiva",
@@ -2320,9 +2398,10 @@ elif pantalla == "Seguimiento activación al servicio":
                 else:
                     st.caption("Haz clic en una fila para ver el detalle de turnos de ese funcionario.")
 
+            resumen_t_mostrar = resumen_t.head(2000)
             evento_s = st.dataframe(
-                resumen_t, width="stretch", hide_index=True,
-                height=min(440, 46 + 35 * min(len(resumen_t), 11)),
+                resumen_t_mostrar, width="stretch", hide_index=True,
+                height=min(440, 46 + 35 * min(len(resumen_t_mostrar), 11)),
                 on_select="rerun", selection_mode="single-row", key="tabla_funcionarios_seguimiento",
                 column_config={
                     "Grado, nombres y apellidos": st.column_config.TextColumn("Grado, nombres y apellidos",

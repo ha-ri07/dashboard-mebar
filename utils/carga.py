@@ -73,7 +73,7 @@ def _leer_excel(ruta: Path) -> pd.DataFrame:
 def _leer_archivo_cacheado(nombre_base: str, firma: tuple) -> pd.DataFrame:
     # `firma` (extensión, mtime y tamaño de cada archivo) solo sirve para
     # invalidar la caché cuando algún archivo cambia.
-    return _leer_archivo(nombre_base)
+    return _optimizar_dtypes(_leer_archivo(nombre_base))
 
 
 def _leer_archivo(nombre_base: str) -> pd.DataFrame:
@@ -118,6 +118,11 @@ def _firma_archivos(nombres: tuple[str, ...]) -> tuple[tuple, ...]:
     return tuple(firma)
 
 
+def _firma_archivo(nombre_base: str) -> tuple[tuple, ...]:
+    """Devuelve la firma de un reporte, incluyendo sus formatos disponibles."""
+    return _firma_archivos((nombre_base,))
+
+
 def _leer(nombre_base: str) -> pd.DataFrame:
     """Lee un reporte usando caché; si no existe, devuelve un DataFrame vacío."""
     firma = []
@@ -140,9 +145,18 @@ def _optimizar_dtypes(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     for columna in df.select_dtypes(include=["object", "string"]).columns:
+        serie = df[columna]
+        numerica = pd.to_numeric(serie, errors="coerce")
+        valores_no_nulos = serie.notna().sum()
+        if valores_no_nulos and numerica.notna().sum() >= valores_no_nulos * 0.8:
+            df[columna] = pd.to_numeric(
+                numerica,
+                downcast="integer" if pd.api.types.is_integer_dtype(numerica) else "float",
+            )
+            continue
         valores_unicos = df[columna].nunique(dropna=False)
         if valores_unicos < total_filas * 0.5:
-            df[columna] = df[columna].astype("category")
+            df[columna] = serie.astype("category")
 
     for columna in df.columns:
         serie = df[columna]
@@ -152,6 +166,29 @@ def _optimizar_dtypes(df: pd.DataFrame) -> pd.DataFrame:
             df[columna] = pd.to_numeric(serie, downcast="float")
 
     return df
+
+
+@st.cache_resource(show_spinner=False, max_entries=8)
+def _cargar_reporte_optimizado(nombre_base: str, firma: tuple[tuple, ...]) -> pd.DataFrame:
+    """Carga y optimiza un reporte aislado sin retener copias intermedias."""
+    df = _leer_archivo(nombre_base)
+    if df.empty:
+        return df
+    optimizado = _optimizar_dtypes(df)
+    del df
+    gc.collect()
+    return optimizado
+
+
+@st.cache_resource(show_spinner=False, max_entries=4)
+def _cargar_delitos_operatividad_cache(
+    firma_delitos: tuple[tuple, ...], firma_operatividad: tuple[tuple, ...]
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Carga solo los dos reportes base usados por los paneles analíticos."""
+    delitos = _optimizar_dtypes(_leer_archivo("REPORTE_DELITOS"))
+    operatividad = _optimizar_dtypes(_leer_archivo("REPORTE_OPERATIVIDAD"))
+    gc.collect()
+    return delitos, operatividad
 
 
 @st.cache_resource(show_spinner=False, max_entries=4)
@@ -174,6 +211,26 @@ def _cargar_antecedentes_combinados(
     del partes, df_mes
     gc.collect()
     return _optimizar_dtypes(combinado)
+
+
+def cargar_delitos_operatividad() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Carga únicamente delitos y operatividad para los paneles principales."""
+    return _cargar_delitos_operatividad_cache(
+        _firma_archivo("REPORTE_DELITOS"),
+        _firma_archivo("REPORTE_OPERATIVIDAD"),
+    )
+
+
+def cargar_antecedentes_persona() -> pd.DataFrame:
+    """Carga antecedentes de persona solo cuando la sección los solicita."""
+    nombres = tuple(f"REPORTE_ANTECEDENTES_PERSONA_{mes}" for mes in MESES)
+    return _cargar_antecedentes_combinados(nombres, "PERSONA", _firma_archivos(nombres))
+
+
+def cargar_antecedentes_vehiculo() -> pd.DataFrame:
+    """Carga antecedentes de vehículo solo cuando la sección los solicita."""
+    nombres = tuple(f"REPORTE_ANTECEDENTES_VEHICULO_{mes}" for mes in MESES)
+    return _cargar_antecedentes_combinados(nombres, "VEHICULO", _firma_archivos(nombres))
 
 
 def _leer_lote(nombres: list[str]) -> dict[str, pd.DataFrame]:
@@ -219,14 +276,19 @@ def cargar_datos() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFra
 
 def cargar_rnmc() -> pd.DataFrame:
     """Carga REPORTE_RNMC (comparendos del Registro Nacional de Medidas Correctivas)."""
-    return _leer("REPORTE_RNMC")
+    return _cargar_reporte_optimizado("REPORTE_RNMC", _firma_archivo("REPORTE_RNMC"))
 
 
 def cargar_turnos() -> pd.DataFrame:
     """Carga REPORTE_TURNOS: cada registro es un turno cumplido por un funcionario."""
-    return _leer("REPORTE_TURNOS")
+    return _cargar_reporte_optimizado("REPORTE_TURNOS", _firma_archivo("REPORTE_TURNOS"))
 
 
 def cargar_permisos() -> pd.DataFrame:
     """Carga REPORTE_PERMISOS: registros de minuta con novedades/permisos por funcionario."""
-    return _leer("REPORTE_PERMISOS")
+    return _cargar_reporte_optimizado("REPORTE_PERMISOS", _firma_archivo("REPORTE_PERMISOS"))
+
+
+def cargar_tahum() -> pd.DataFrame:
+    """Carga el padrón pequeño de funcionarios usado para construir maestros."""
+    return _cargar_reporte_optimizado("REPORTE_TAHUM", _firma_archivo("REPORTE_TAHUM"))
