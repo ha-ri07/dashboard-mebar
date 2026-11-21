@@ -1,5 +1,6 @@
 from pathlib import Path
 from time import perf_counter
+import gc
 
 import pandas as pd
 import streamlit as st
@@ -72,6 +73,11 @@ def _leer_excel(ruta: Path) -> pd.DataFrame:
 def _leer_archivo_cacheado(nombre_base: str, firma: tuple) -> pd.DataFrame:
     # `firma` (extensión, mtime y tamaño de cada archivo) solo sirve para
     # invalidar la caché cuando algún archivo cambia.
+    return _leer_archivo(nombre_base)
+
+
+def _leer_archivo(nombre_base: str) -> pd.DataFrame:
+    """Lee un archivo sin caché individual, conservando Excel -> Parquet."""
     parquet = DATA_DIR / f"{nombre_base}.parquet"
     excel = next(
         (
@@ -100,6 +106,18 @@ def _leer_archivo_cacheado(nombre_base: str, firma: tuple) -> pd.DataFrame:
     return pd.DataFrame()
 
 
+def _firma_archivos(nombres: tuple[str, ...]) -> tuple[tuple, ...]:
+    """Devuelve la firma de todos los archivos existentes de un grupo."""
+    firma = []
+    for nombre in nombres:
+        for ext in (".parquet", *EXTENSIONES_EXCEL):
+            ruta = DATA_DIR / f"{nombre}{ext}"
+            if ruta.is_file():
+                stat = ruta.stat()
+                firma.append((nombre, ext, stat.st_mtime_ns, stat.st_size))
+    return tuple(firma)
+
+
 def _leer(nombre_base: str) -> pd.DataFrame:
     """Lee un reporte usando caché; si no existe, devuelve un DataFrame vacío."""
     firma = []
@@ -113,6 +131,49 @@ def _leer(nombre_base: str) -> pd.DataFrame:
         return pd.DataFrame()
 
     return _leer_archivo_cacheado(nombre_base, tuple(firma))
+
+
+def _optimizar_dtypes(df: pd.DataFrame) -> pd.DataFrame:
+    """Reduce memoria en textos de baja cardinalidad y columnas numéricas."""
+    total_filas = len(df)
+    if total_filas == 0:
+        return df
+
+    for columna in df.select_dtypes(include=["object", "string"]).columns:
+        valores_unicos = df[columna].nunique(dropna=False)
+        if valores_unicos < total_filas * 0.5:
+            df[columna] = df[columna].astype("category")
+
+    for columna in df.columns:
+        serie = df[columna]
+        if pd.api.types.is_integer_dtype(serie):
+            df[columna] = pd.to_numeric(serie, downcast="integer")
+        elif pd.api.types.is_float_dtype(serie):
+            df[columna] = pd.to_numeric(serie, downcast="float")
+
+    return df
+
+
+@st.cache_resource(show_spinner=False, max_entries=4)
+def _cargar_antecedentes_combinados(
+    nombres: tuple[str, ...], tipo: str, firma: tuple[tuple, ...]
+) -> pd.DataFrame:
+    """Lee, combina y cachea un grupo mensual completo."""
+    partes = []
+    for mes, nombre in zip(MESES, nombres):
+        df_mes = _leer_archivo(nombre)
+        if not df_mes.empty:
+            df_mes["MES_CONSULTA"] = mes
+            df_mes["TIPO_CONSULTA"] = tipo
+            partes.append(df_mes)
+
+    if not partes:
+        return pd.DataFrame()
+
+    combinado = pd.concat(partes, ignore_index=True, sort=False)
+    del partes, df_mes
+    gc.collect()
+    return _optimizar_dtypes(combinado)
 
 
 def _leer_lote(nombres: list[str]) -> dict[str, pd.DataFrame]:
@@ -135,31 +196,14 @@ def cargar_datos() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFra
     nombres_principales = ["REPORTE_DELITOS", "REPORTE_OPERATIVIDAD"]
     nombres_persona = [f"REPORTE_ANTECEDENTES_PERSONA_{mes}" for mes in MESES]
     nombres_vehiculo = [f"REPORTE_ANTECEDENTES_VEHICULO_{mes}" for mes in MESES]
-    todos = nombres_principales + nombres_persona + nombres_vehiculo
-
-    cargados = _leer_lote(todos)
-
-    delitos = cargados["REPORTE_DELITOS"]
-    operatividad = cargados["REPORTE_OPERATIVIDAD"]
-
-    def combinar_mensuales(nombres: list[str], tipo: str) -> pd.DataFrame:
-        partes = []
-        for mes, nombre in zip(MESES, nombres):
-            df_mes = cargados[nombre]
-            if not df_mes.empty:
-                # Copiar únicamente cuando se van a añadir columnas, para no
-                # modificar el DataFrame almacenado en la caché individual.
-                parte = df_mes.copy()
-                parte["MES_CONSULTA"] = mes
-                parte["TIPO_CONSULTA"] = tipo
-                partes.append(parte)
-
-        if not partes:
-            return pd.DataFrame()
-        return pd.concat(partes, ignore_index=True, sort=False)
-
-    tahum = combinar_mensuales(nombres_persona, "PERSONA")
-    vehiculos = combinar_mensuales(nombres_vehiculo, "VEHICULO")
+    delitos = _leer(nombres_principales[0])
+    operatividad = _leer(nombres_principales[1])
+    tahum = _cargar_antecedentes_combinados(
+        tuple(nombres_persona), "PERSONA", _firma_archivos(tuple(nombres_persona))
+    )
+    vehiculos = _cargar_antecedentes_combinados(
+        tuple(nombres_vehiculo), "VEHICULO", _firma_archivos(tuple(nombres_vehiculo))
+    )
 
     # Diagnóstico de bajo impacto: solo muestra cantidad de filas y tiempo total.
     duracion = perf_counter() - inicio
