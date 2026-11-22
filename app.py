@@ -954,10 +954,31 @@ with st.sidebar:
         ignore_index=True,
     )
     if not fechas.empty:
-        fecha_min = fechas.min().date()
-        fecha_max = fechas.max().date()
-        rango_fechas = st.date_input("Periodo de consulta", value=(fecha_min, fecha_max), min_value=fecha_min,
-                                     max_value=fecha_max, format="DD/MM/YYYY")
+        fecha_max_datos = fechas.max().date()
+        fecha_inicio_anio = fecha_max_datos.replace(month=1, day=1)
+        fecha_fin_anio = fecha_max_datos.replace(month=12, day=31)
+
+        def restablecer_periodo_completo(fecha_inicio, fecha_fin):
+            st.session_state["periodo_consulta"] = (fecha_inicio, fecha_fin)
+
+        if "periodo_consulta" not in st.session_state:
+            st.session_state["periodo_consulta"] = (fecha_inicio_anio, fecha_fin_anio)
+
+        rango_fechas = st.date_input(
+            "Periodo de consulta",
+            min_value=fecha_inicio_anio,
+            max_value=fecha_fin_anio,
+            format="DD/MM/YYYY",
+            key="periodo_consulta",
+        )
+        st.button(
+            "Restablecer calendario completo",
+            icon=":material/calendar_month:",
+            type="secondary",
+            width="stretch",
+            on_click=restablecer_periodo_completo,
+            args=(fecha_inicio_anio, fecha_fin_anio),
+        )
         if isinstance(rango_fechas, (tuple, list)) and len(rango_fechas) == 2:
             inicio, fin = rango_fechas
         elif isinstance(rango_fechas, (tuple, list)) and len(rango_fechas) == 1:
