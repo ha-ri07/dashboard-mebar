@@ -1445,7 +1445,7 @@ def mostrar_dialogo_rnmc(id_clave, nombre_funcionario):
 
     if "ARTICULO" in registros.columns:
         st.markdown("### ⚖️ Comparendos por artículo")
-        por_articulo = (registros["ARTICULO"].fillna("No especificado").astype(str).str.strip()
+        por_articulo = (registros["ARTICULO"].astype("string").fillna("No especificado").str.strip()
                         .value_counts().reset_index())
         por_articulo.columns = ["Artículo", "Comparendos"]
         st.dataframe(por_articulo, width="stretch", hide_index=True)
@@ -1817,7 +1817,9 @@ elif pantalla == "Gestión Operativa":
                     seleccionado = cedula_elegida
 
         if seleccionado and "IDENTIFICACION" in ops.columns:
-            ids_limpios = ops["IDENTIFICACION"].fillna("").astype(str).str.replace(r"\.0$", "", regex=True).str.strip()
+            ids_limpios = ops["IDENTIFICACION"].astype("string").fillna("").str.replace(
+                r"\.0$", "", regex=True
+            ).str.strip()
             filtrada = ops.loc[ids_limpios == str(seleccionado)].copy()
             if not filtrada.empty:
                 ops = filtrada
@@ -2284,7 +2286,7 @@ elif pantalla == "Registro Delictivo":
                 estacion_g = delitos_g.groupby("ESTACION", dropna=False)[metrica_casos].sum().reset_index(name="CASOS")
             else:
                 estacion_g = delitos_g.groupby("ESTACION", dropna=False).size().reset_index(name="CASOS")
-            estacion_g["ESTACION"] = estacion_g["ESTACION"].fillna("No especificada").astype(str)
+            estacion_g["ESTACION"] = estacion_g["ESTACION"].astype("string").fillna("No especificada")
             estacion_g = estacion_g.sort_values("CASOS", ascending=False).head(12).sort_values("CASOS")
             fig = px.bar(estacion_g, x="CASOS", y="ESTACION", orientation="h", text="CASOS",
                          color_discrete_sequence=[ROJO_CARMESI],
@@ -2303,7 +2305,7 @@ elif pantalla == "Registro Delictivo":
                 tipos_delito_g = delitos_g.groupby("DELITO", dropna=False)[metrica_tipo].sum().reset_index(name="CASOS")
             else:
                 tipos_delito_g = delitos_g.groupby("DELITO", dropna=False).size().reset_index(name="CASOS")
-            tipos_delito_g["DELITO"] = tipos_delito_g["DELITO"].fillna("No especificado").astype(str)
+            tipos_delito_g["DELITO"] = tipos_delito_g["DELITO"].astype("string").fillna("No especificado")
             tipos_delito_g = tipos_delito_g.sort_values("CASOS", ascending=False).head(12).sort_values("CASOS")
             fig = px.bar(tipos_delito_g, x="CASOS", y="DELITO", orientation="h", text="CASOS",
                          color_discrete_sequence=[ROJO_CARMESI_CLARO],
