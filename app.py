@@ -1303,25 +1303,35 @@ def mostrar_dialogo_antecedentes(id_clave, nombre_funcionario):
     def mostrar_cuadricula_meses(df_filtrado, titulo):
         if df_filtrado.empty or "MES_CONSULTA" not in df_filtrado.columns:
             return
+        st.markdown(
+            """
+            <div style="background:linear-gradient(135deg,#0F2A4A 0%,#173E68 100%); border:1px solid #2F6FAE; border-left:5px solid #C5A45B; border-radius:12px; padding:13px 16px; margin:8px 0 16px; color:#EAF3FF; box-shadow:0 5px 16px rgba(15,42,74,.18);">
+                <div style="font-size:12px; font-weight:800; letter-spacing:.7px; color:#F6D98B; text-transform:uppercase;">Periodo de evaluación</div>
+                <div style="font-size:16px; font-weight:800; margin-top:3px;">Antecedentes evaluados de julio a diciembre</div>
+                <div style="font-size:12px; color:#B9D1EA; margin-top:4px;">Los meses anteriores no hacen parte del periodo actual de análisis.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         st.markdown(f"### {titulo}")
-        orden_meses = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE",
-                       "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
+        orden_meses = ["JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
         consultas_por_mes = df_filtrado["MES_CONSULTA"].value_counts().to_dict()
-        filas_meses = [orden_meses[0:4], orden_meses[4:8], orden_meses[8:12]]
+        filas_meses = [orden_meses[0:3], orden_meses[3:6]]
         for fila in filas_meses:
-            cols = st.columns(4, gap="small")
+            cols = st.columns(3, gap="small")
             for i, mes in enumerate(fila):
-                cantidad = consultas_por_mes.get(mes, 0)
+                cantidad = consultas_por_mes.get(mes)
+                etiqueta_cantidad = cantidad if cantidad is not None else "Sin registros"
                 with cols[i]:
-                    if cantidad > 0:
+                    if cantidad is not None and cantidad > 0:
                         bg_color, border_color, text_color, num_color = "linear-gradient(135deg, #1E3A8A 0%, #1E40AF 100%)", "#3B82F6", "#FFFFFF", "#60A5FA"
                     else:
-                        bg_color, border_color, text_color, num_color = "rgba(255, 255, 255, 0.03)", "#334155", "#64748B", "#475569"
+                        bg_color, border_color, text_color, num_color = "rgba(255, 255, 255, 0.03)", "#475569", "#94A3B8", "#CBD5E1"
                     st.markdown(
                         f"""
-                        <div style="background: {bg_color}; border: 1px solid {border_color}; border-radius: 10px; padding: 10px 8px; text-align: center; min-height: 65px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                        <div style="background: {bg_color}; border: 1px solid {border_color}; border-radius: 10px; padding: 12px 8px; text-align: center; min-height: 72px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                             <div style="color: {text_color}; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 5px;">📆 {mes}</div>
-                            <div style="color: {num_color}; font-size: 16px; font-weight: 800;">{cantidad}</div>
+                            <div style="color: {num_color}; font-size: 15px; font-weight: 800;">{etiqueta_cantidad}</div>
                         </div>
                         """,
                         unsafe_allow_html=True,
