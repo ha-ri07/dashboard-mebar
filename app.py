@@ -1680,7 +1680,7 @@ if id_ficha_url:
 if pantalla == "Panel principal":
     header_principal_con_reloj()
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3 = st.columns(3)
     with c1:
         tarjeta("Casos delictivos", formatear_entero(suma_columna(delitos_f, "CANTIDAD CASOS")),
                 "Total del periodo filtrado")
@@ -1690,10 +1690,6 @@ if pantalla == "Panel principal":
     with c3:
         tarjeta("Total tipo de captura", formatear_entero(suma_columna(operatividad_f, "TOTAL TIPO DE CAPTURA")),
                 "Suma de la columna TOTAL TIPO DE CAPTURA")
-    with c4:
-        tarjeta("Funcionarios identificados", formatear_entero(ranking["_ID_CLAVE"].nunique()),
-                "Con identificación disponible")
-
     st.markdown("""
     <style>
     .ranking-intro { margin: 8px 0 12px; color:#526174; font-size:14px; }
