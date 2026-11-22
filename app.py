@@ -2004,51 +2004,6 @@ elif pantalla == "Gestión Operativa":
         else:
             st.info("El reporte no contiene la columna DELITO DE CAPTURA.")
 
-        titulo_seccion("Capturas por funcionario · Flagrancia y orden judicial")
-        if "TIPO DE CAPTURA" in ops.columns:
-            tipo = ops["TIPO DE CAPTURA"].astype(object).where(
-                ops["TIPO DE CAPTURA"].notna(), ""
-            ).astype(str).str.casefold()
-            subset = ops[tipo.str.contains("flagrancia|orden judicial", regex=True, na=False)].copy()
-            if not subset.empty:
-                subset["TIPO_NORMALIZADO"] = subset["TIPO DE CAPTURA"].astype(str).str.casefold().apply(
-                    lambda x: "Flagrancia" if "flagrancia" in x else "Orden judicial")
-                columna_metrica = "TOTAL TIPO DE CAPTURA" if "TOTAL TIPO DE CAPTURA" in subset.columns else None
-                if columna_metrica:
-                    subset[columna_metrica] = pd.to_numeric(subset[columna_metrica], errors="coerce").fillna(0)
-                    if "GR APELLIDOS Y NOMBRES POLICIA_1" in subset.columns:
-                        resumen_func = subset.groupby(
-                            ["GR APELLIDOS Y NOMBRES POLICIA_1", "TIPO_NORMALIZADO"],
-                            dropna=False,
-                            observed=False,
-                        )[columna_metrica].sum().reset_index(name="TOTAL")
-                    else:
-                        resumen_func = subset.groupby("TIPO_NORMALIZADO")[columna_metrica].sum().reset_index(
-                            name="TOTAL")
-                    if "GR APELLIDOS Y NOMBRES POLICIA_1" in resumen_func.columns:
-                        resumen_func["FUNCIONARIO"] = resumen_func[
-                            "GR APELLIDOS Y NOMBRES POLICIA_1"
-                        ].astype(object).where(
-                            resumen_func["GR APELLIDOS Y NOMBRES POLICIA_1"].notna(), "No registrado"
-                        ).astype(str)
-                        fig = px.bar(resumen_func, x="FUNCIONARIO", y="TOTAL", color="TIPO_NORMALIZADO",
-                                     barmode="group", labels={"TOTAL": "Total tipo de captura",
-                                                              "FUNCIONARIO": "Grado, nombres y apellidos",
-                                                              "TIPO_NORMALIZADO": "Tipo de captura"},
-                                     color_discrete_map={"Flagrancia": AZUL, "Orden judicial": DORADO})
-                        fig.update_layout(plot_bgcolor="white", paper_bgcolor="white", xaxis_tickangle=-35,
-                                          margin=dict(l=10, r=10, t=20, b=10))
-                        mostrar_grafico(estilizar_grafico(fig))
-                    mostrar_tabla(resumen_func, list(resumen_func.columns),
-                                  {"GR APELLIDOS Y NOMBRES POLICIA_1": "Grado, nombres y apellidos",
-                                   "TIPO_NORMALIZADO": "Tipo de captura", "TOTAL": "Total tipo de captura"})
-                else:
-                    st.info("Falta TOTAL TIPO DE CAPTURA para comparar flagrancia y orden judicial.")
-            else:
-                st.info("No se encontraron tipos de captura de flagrancia u orden judicial en los filtros actuales.")
-        else:
-            st.info("El reporte no contiene la columna TIPO DE CAPTURA.")
-
         titulo_seccion("Distribución por delito de captura")
         if "DELITO DE CAPTURA" in ops.columns:
             delitos_cap = ops.copy()
@@ -2149,9 +2104,6 @@ elif pantalla == "Gestión Operativa":
                        "ACTIVIDAD OPERATIVA": "Actividad operativa", "TOTAL ACTIVIDAD OPERATIVA": "Total actividad",
                        "LATITUD": "Latitud", "LONGITUD": "Longitud"})
 
-    titulo_seccion("Ficha individual del funcionario")
-    selector_funcionario()
-    mostrar_ficha_seleccionada()
 
 
 # ============================================================
