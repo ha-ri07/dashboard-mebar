@@ -551,9 +551,6 @@ def construir_resumen_funcionarios(_ops, firma, columna_funcionario):
 # HEADER PRINCIPAL CON RELOJ EN TIEMPO REAL
 # ============================================================
 
-import streamlit.components.v1 as components
-
-
 def header_principal_con_reloj():
     html_reloj = """
     <!DOCTYPE html>
@@ -621,7 +618,7 @@ def header_principal_con_reloj():
     </body>
     </html>
     """
-    components.html(html_reloj, height=140, scrolling=False)
+    st.html(html_reloj, unsafe_allow_javascript=True)
 
 
 # ============================================================
@@ -1980,7 +1977,9 @@ elif pantalla == "Gestión Operativa":
                     subset[columna_metrica] = pd.to_numeric(subset[columna_metrica], errors="coerce").fillna(0)
                     if "GR APELLIDOS Y NOMBRES POLICIA_1" in subset.columns:
                         resumen_func = subset.groupby(
-                            ["GR APELLIDOS Y NOMBRES POLICIA_1", "TIPO_NORMALIZADO"], dropna=False
+                            ["GR APELLIDOS Y NOMBRES POLICIA_1", "TIPO_NORMALIZADO"],
+                            dropna=False,
+                            observed=False,
                         )[columna_metrica].sum().reset_index(name="TOTAL")
                     else:
                         resumen_func = subset.groupby("TIPO_NORMALIZADO")[columna_metrica].sum().reset_index(

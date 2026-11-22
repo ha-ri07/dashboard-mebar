@@ -27,6 +27,11 @@ MESES = (
     "DICIEMBRE"
 )
 
+# Los antecedentes se consultan desde julio del año vigente hacia adelante.
+# Mantener la lista completa de meses permite reutilizarla para otros reportes,
+# pero evita cargar históricos innecesarios en los archivos de antecedentes.
+MESES_ANTECEDENTES = MESES[6:]
+
 EXTENSIONES_EXCEL = (".xlsx", ".xls")
 
 
@@ -197,7 +202,11 @@ def _cargar_antecedentes_combinados(
 ) -> pd.DataFrame:
     """Lee, combina y cachea un grupo mensual completo."""
     partes = []
-    for mes, nombre in zip(MESES, nombres):
+    for nombre in nombres:
+        # El mes se obtiene del nombre real del archivo para que los lotes
+        # parciales (por ejemplo, desde JULIO) no queden etiquetados como
+        # ENERO, FEBRERO, etc.
+        mes = nombre.rsplit("_", 1)[-1]
         df_mes = _leer_archivo(nombre)
         if not df_mes.empty:
             df_mes["MES_CONSULTA"] = mes
@@ -223,13 +232,13 @@ def cargar_delitos_operatividad() -> tuple[pd.DataFrame, pd.DataFrame]:
 
 def cargar_antecedentes_persona() -> pd.DataFrame:
     """Carga antecedentes de persona solo cuando la sección los solicita."""
-    nombres = tuple(f"REPORTE_ANTECEDENTES_PERSONA_{mes}" for mes in MESES)
+    nombres = tuple(f"REPORTE_ANTECEDENTES_PERSONA_{mes}" for mes in MESES_ANTECEDENTES)
     return _cargar_antecedentes_combinados(nombres, "PERSONA", _firma_archivos(nombres))
 
 
 def cargar_antecedentes_vehiculo() -> pd.DataFrame:
     """Carga antecedentes de vehículo solo cuando la sección los solicita."""
-    nombres = tuple(f"REPORTE_ANTECEDENTES_VEHICULO_{mes}" for mes in MESES)
+    nombres = tuple(f"REPORTE_ANTECEDENTES_VEHICULO_{mes}" for mes in MESES_ANTECEDENTES)
     return _cargar_antecedentes_combinados(nombres, "VEHICULO", _firma_archivos(nombres))
 
 
@@ -251,8 +260,8 @@ def cargar_datos() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFra
     inicio = perf_counter()
 
     nombres_principales = ["REPORTE_DELITOS", "REPORTE_OPERATIVIDAD"]
-    nombres_persona = [f"REPORTE_ANTECEDENTES_PERSONA_{mes}" for mes in MESES]
-    nombres_vehiculo = [f"REPORTE_ANTECEDENTES_VEHICULO_{mes}" for mes in MESES]
+    nombres_persona = [f"REPORTE_ANTECEDENTES_PERSONA_{mes}" for mes in MESES_ANTECEDENTES]
+    nombres_vehiculo = [f"REPORTE_ANTECEDENTES_VEHICULO_{mes}" for mes in MESES_ANTECEDENTES]
     delitos = _leer(nombres_principales[0])
     operatividad = _leer(nombres_principales[1])
     tahum = _cargar_antecedentes_combinados(
