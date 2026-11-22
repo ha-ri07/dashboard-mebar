@@ -894,9 +894,8 @@ def _asegurar_antecedentes_bajo_demanda(id_clave):
 def _asegurar_rnmc_bajo_demanda():
     """Carga y prepara RNMC únicamente al abrir el diálogo de comparendos."""
     global rnmc
-    if not rnmc.empty and "FECHA_RNMC" in rnmc.columns:
-        return
-    rnmc = limpiar_dataframe(cargar_rnmc())
+    if rnmc.empty:
+        rnmc = limpiar_dataframe(cargar_rnmc())
     if rnmc.empty:
         rnmc = pd.DataFrame(columns=["_ID_CLAVE", "FECHA_RNMC"])
         return
@@ -905,9 +904,17 @@ def _asegurar_rnmc_bajo_demanda():
                unicodedata.normalize("NFKD", str(c)).encode("ascii", "ignore").decode().strip().upper())
         for c in rnmc.columns
     ]
+    rnmc = rnmc.rename(columns={
+        "ESTACI�N": "ESTACION",
+        "ESTACION_POLICIA": "ESTACION",
+        "FECHA_HECHO": "FECHA_HECHOS",
+    })
     rnmc = preparar_identificacion(rnmc, "IDENTIFICACION_POLICIA")
-    rnmc["FECHA_RNMC"] = (pd.to_datetime(rnmc["FECHA_HECHOS"], errors="coerce", dayfirst=True)
-                           if "FECHA_HECHOS" in rnmc.columns else pd.NaT)
+    rnmc["FECHA_RNMC"] = pd.to_datetime(
+        rnmc.get("FECHA_HECHOS", pd.Series(pd.NaT, index=rnmc.index)),
+        errors="coerce",
+        dayfirst=True,
+    )
 
 
 # ============================================================
@@ -1482,7 +1489,8 @@ def mostrar_dialogo_rnmc(id_clave, nombre_funcionario):
 
     st.markdown("### 🗂️ Detalle de comparendos")
     detalle = registros.copy()
-    detalle["FECHA"] = detalle["FECHA_RNMC"].dt.strftime("%d/%m/%Y").fillna("")
+    fecha_detalle = pd.to_datetime(detalle["FECHA_RNMC"], errors="coerce")
+    detalle["FECHA"] = fecha_detalle.dt.strftime("%d/%m/%Y").fillna("")
     columnas_detalle = ["FECHA", "HORA_HECHOS", "DIA_HECHOS", "ESTACION", "LUGAR", "UNIDAD_LABORA_POL",
                         "ARTICULO", "COMPORTAMIENTO"]
     existentes = [c for c in columnas_detalle if c in detalle.columns]
