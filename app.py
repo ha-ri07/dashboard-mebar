@@ -1494,7 +1494,9 @@ def mostrar_dialogo_rnmc(id_clave, nombre_funcionario):
     columnas_detalle = ["FECHA", "HORA_HECHOS", "DIA_HECHOS", "ESTACION", "LUGAR", "UNIDAD_LABORA_POL",
                         "ARTICULO", "COMPORTAMIENTO"]
     existentes = [c for c in columnas_detalle if c in detalle.columns]
-    vista = detalle[existentes].fillna("").astype(str).rename(columns={
+    # Los reportes RNMC contienen columnas `category`; convertir a object antes
+    # de rellenar evita insertar "" como una categoría inexistente.
+    vista = detalle[existentes].astype("object").fillna("").astype(str).rename(columns={
         "HORA_HECHOS": "HORA", "DIA_HECHOS": "DÍA", "ESTACION": "ESTACIÓN",
         "UNIDAD_LABORA_POL": "UNIDAD", "ARTICULO": "ARTÍCULO",
     })
