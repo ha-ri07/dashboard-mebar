@@ -885,7 +885,9 @@ def _asegurar_antecedentes_bajo_demanda():
         tahum = limpiar_dataframe(cargar_antecedentes_persona())
         _precalcular_id_funcionario(tahum)
         tahum["_ID_CLAVE_ANT"] = normalizar_serie_id(
-            tahum["FuncionarioFisica"] if "FuncionarioFisica" in tahum.columns else ""
+            tahum["FuncionarioFisica"]
+            if "FuncionarioFisica" in tahum.columns
+            else pd.Series("", index=tahum.index, dtype="string")
         )
     if vehiculos.empty:
         vehiculos = limpiar_dataframe(cargar_antecedentes_vehiculo())
