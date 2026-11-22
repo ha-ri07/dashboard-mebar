@@ -1101,8 +1101,10 @@ def calcular_vista(inicio, fin, estaciones_sel, grados_sel, cedula_busqueda, nom
         maestros_f = maestros_f[
             maestros_f["_ID_CLAVE"].astype(str).str.contains(re.escape(normalizar_id(cedula_busqueda)), na=False)]
     if nombre_busqueda:
-        texto = (maestros_f["GRADO"].fillna("").astype(str) + " " +
-                 maestros_f["NOMBRE"].fillna("").astype(str)).str.casefold()
+        # Convert to pandas' nullable string dtype before filling nulls. This
+        # also works when the source columns arrive as categorical data.
+        texto = (maestros_f["GRADO"].astype("string").fillna("") + " " +
+                 maestros_f["NOMBRE"].astype("string").fillna("")).str.casefold()
         maestros_f = maestros_f[texto.str.contains(re.escape(nombre_busqueda), na=False)]
 
     ids_visibles = set(maestros_f["_ID_CLAVE"].astype(str))
@@ -1124,7 +1126,10 @@ def calcular_vista(inicio, fin, estaciones_sel, grados_sel, cedula_busqueda, nom
 
     if "DELITO" in delitos_f.columns:
         delitos_homicidios = delitos_f[
-            delitos_f["DELITO"].fillna("").astype(str).str.contains(r"\bhomicidio\b", case=False, regex=True)].copy()
+            delitos_f["DELITO"].astype("string").fillna("").str.contains(
+                r"\bhomicidio\b", case=False, regex=True, na=False
+            )
+        ].copy()
     else:
         delitos_homicidios = delitos_f.iloc[0:0].copy()
 
