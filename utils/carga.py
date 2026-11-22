@@ -4,6 +4,7 @@ import gc
 
 import pandas as pd
 import streamlit as st
+from pyarrow.lib import ArrowInvalid
 
 
 # ============================================================
@@ -143,6 +144,35 @@ def _leer(nombre_base: str) -> pd.DataFrame:
     return _leer_archivo_cacheado(nombre_base, tuple(firma))
 
 
+def _leer_archivo_filtrado(nombre_base: str, columna: str, valor) -> pd.DataFrame:
+    """Lee solo las filas que coinciden con un identificador en Parquet."""
+    parquet = DATA_DIR / f"{nombre_base}.parquet"
+    if parquet.is_file():
+        try:
+            return pd.read_parquet(parquet, filters=[(columna, "==", valor)])
+        except (ArrowInvalid, KeyError, ValueError):
+            # Algunos archivos antiguos pueden no tener estadísticas o la
+            # columna esperada; el filtro posterior mantiene compatibilidad.
+            df = pd.read_parquet(parquet)
+    else:
+        excel = next(
+            (
+                DATA_DIR / f"{nombre_base}{ext}"
+                for ext in EXTENSIONES_EXCEL
+                if (DATA_DIR / f"{nombre_base}{ext}").is_file()
+            ),
+            None,
+        )
+        if excel is None:
+            return pd.DataFrame()
+        df = _leer_excel(excel)
+
+    if columna not in df.columns:
+        return df.iloc[0:0].copy()
+    serie = pd.to_numeric(df[columna], errors="coerce")
+    return df.loc[serie.eq(valor)].copy()
+
+
 def _optimizar_dtypes(df: pd.DataFrame) -> pd.DataFrame:
     """Reduce memoria en textos de baja cardinalidad y columnas numéricas."""
     total_filas = len(df)
@@ -222,6 +252,27 @@ def _cargar_antecedentes_combinados(
     return _optimizar_dtypes(combinado)
 
 
+@st.cache_data(show_spinner=False, max_entries=200)
+def _cargar_antecedentes_funcionario_cache(
+    id_clave: str, tipo: str, firma: tuple[tuple, ...]
+) -> pd.DataFrame:
+    """Carga antecedentes de una sola persona o vehículo por cédula."""
+    nombres = tuple(
+        f"REPORTE_ANTECEDENTES_{tipo}_{mes}" for mes in MESES_ANTECEDENTES
+    )
+    valor = int(id_clave) if id_clave.isdigit() else id_clave
+    partes = []
+    for nombre in nombres:
+        df_mes = _leer_archivo_filtrado(nombre, "CCFuncionario", valor)
+        if not df_mes.empty:
+            df_mes["MES_CONSULTA"] = nombre.rsplit("_", 1)[-1]
+            df_mes["TIPO_CONSULTA"] = tipo
+            partes.append(df_mes)
+    if not partes:
+        return pd.DataFrame()
+    return _optimizar_dtypes(pd.concat(partes, ignore_index=True, sort=False))
+
+
 def cargar_delitos_operatividad() -> tuple[pd.DataFrame, pd.DataFrame]:
     """Carga únicamente delitos y operatividad para los paneles principales."""
     return _cargar_delitos_operatividad_cache(
@@ -240,6 +291,16 @@ def cargar_antecedentes_vehiculo() -> pd.DataFrame:
     """Carga antecedentes de vehículo solo cuando la sección los solicita."""
     nombres = tuple(f"REPORTE_ANTECEDENTES_VEHICULO_{mes}" for mes in MESES_ANTECEDENTES)
     return _cargar_antecedentes_combinados(nombres, "VEHICULO", _firma_archivos(nombres))
+
+
+def cargar_antecedentes_funcionario(id_clave: str, tipo: str) -> pd.DataFrame:
+    """Carga únicamente los antecedentes asociados a una cédula."""
+    nombres = tuple(
+        f"REPORTE_ANTECEDENTES_{tipo}_{mes}" for mes in MESES_ANTECEDENTES
+    )
+    return _cargar_antecedentes_funcionario_cache(
+        str(id_clave), tipo, _firma_archivos(nombres)
+    )
 
 
 def _leer_lote(nombres: list[str]) -> dict[str, pd.DataFrame]:

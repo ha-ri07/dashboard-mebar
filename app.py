@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 
 from utils.carga import (
     cargar_antecedentes_persona,
-    cargar_antecedentes_vehiculo,
+    cargar_antecedentes_funcionario,
     cargar_delitos_operatividad,
     cargar_permisos,
     cargar_rnmc,
@@ -875,11 +875,11 @@ def _precalcular_id_funcionario(df):
     df["_ID_FUNC"] = normalizar_serie_id(df[col]) if col else ""
 
 
-def _asegurar_antecedentes_bajo_demanda():
+def _asegurar_antecedentes_bajo_demanda(id_clave):
     """Carga antecedentes solo cuando se abre el diálogo correspondiente."""
     global tahum, vehiculos
     if tahum.empty:
-        tahum = limpiar_dataframe(cargar_antecedentes_persona())
+        tahum = limpiar_dataframe(cargar_antecedentes_funcionario(normalizar_id(str(id_clave)), "PERSONA"))
         _precalcular_id_funcionario(tahum)
         tahum["_ID_CLAVE_ANT"] = normalizar_serie_id(
             tahum["FuncionarioFisica"]
@@ -887,7 +887,7 @@ def _asegurar_antecedentes_bajo_demanda():
             else pd.Series("", index=tahum.index, dtype="string")
         )
     if vehiculos.empty:
-        vehiculos = limpiar_dataframe(cargar_antecedentes_vehiculo())
+        vehiculos = limpiar_dataframe(cargar_antecedentes_funcionario(normalizar_id(str(id_clave)), "VEHICULO"))
         _precalcular_id_funcionario(vehiculos)
 
 
@@ -1264,7 +1264,7 @@ def mostrar_ranking_tarjetas(df, metrica, categoria, titulo_vacio):
 
 @st.dialog("📋 Detalle de Antecedentes", width="medium")
 def mostrar_dialogo_antecedentes(id_clave, nombre_funcionario):
-    _asegurar_antecedentes_bajo_demanda()
+    _asegurar_antecedentes_bajo_demanda(id_clave)
     st.markdown(
         """
         <style>
