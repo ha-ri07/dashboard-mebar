@@ -27,7 +27,8 @@ st.set_page_config(
     page_title="Dashboard MEBAR",
     page_icon="🚔",
     layout="wide",
-    initial_sidebar_state="expanded",
+    # Streamlit lo mantiene visible en escritorio y lo recoge en pantallas estrechas.
+    initial_sidebar_state="auto",
 )
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -35,36 +36,54 @@ BASE_DIR = Path(__file__).resolve().parent
 AZUL = "#12345A"
 AZUL_CLARO = "#EAF1F8"
 DORADO = "#C5A45B"
-FONDO = "#FFFFFF"
-TEXTO = "#142B45"
 VERDE = "#198754"
 ROJO = "#B42332"
+
+# Streamlit expone el modo activo para que los componentes propios de la app
+# sigan el selector claro/oscuro del menú de configuración.
+MODO_OSCURO = getattr(st.context.theme, "type", "light") == "dark"
+if MODO_OSCURO:
+    FONDO = "#0B1220"
+    TEXTO = "#E5E7EB"
+    SUPERFICIE = "#111827"
+    SUPERFICIE_SECUNDARIA = "#1F2937"
+    BORDE = "#334155"
+    TEXTO_SECUNDARIO = "#CBD5E1"
+    FONDO_TABLA_ALTERNO = "#172033"
+else:
+    FONDO = "#FFFFFF"
+    TEXTO = "#142B45"
+    SUPERFICIE = "#FFFFFF"
+    SUPERFICIE_SECUNDARIA = "#F4F7FB"
+    BORDE = "#D7E1EC"
+    TEXTO_SECUNDARIO = "#34465C"
+    FONDO_TABLA_ALTERNO = "#F8FAFC"
 
 
 def estilizar_grafico(fig, altura_minima=390):
     """Aplica una presentación consistente, legible y de alto contraste a Plotly."""
     fig.update_layout(
-        template="plotly_white",
-        paper_bgcolor="#FFFFFF",
-        plot_bgcolor="#FFFFFF",
-        font=dict(family="Inter, Arial, sans-serif", size=14, color="#142B45"),
-        title=dict(font=dict(size=18, color="#12345A"), x=0.01, xanchor="left"),
-        legend=dict(font=dict(size=13, color="#142B45"), title_font=dict(size=13, color="#12345A"),
-                    bgcolor="rgba(255,255,255,0.92)", bordercolor="#D7E1EC", borderwidth=1),
+        template="plotly_dark" if MODO_OSCURO else "plotly_white",
+        paper_bgcolor=SUPERFICIE,
+        plot_bgcolor=SUPERFICIE,
+        font=dict(family="Inter, Arial, sans-serif", size=14, color=TEXTO),
+        title=dict(font=dict(size=18, color=TEXTO), x=0.01, xanchor="left"),
+        legend=dict(font=dict(size=13, color=TEXTO), title_font=dict(size=13, color=TEXTO),
+                    bgcolor=SUPERFICIE_SECUNDARIA, bordercolor=BORDE, borderwidth=1),
         hoverlabel=dict(bgcolor="#12345A", font=dict(color="#FFFFFF", size=14), bordercolor="#12345A"),
         margin=dict(l=24, r=24, t=42, b=30),
         height=max(int(fig.layout.height or 0), altura_minima),
     )
     fig.update_xaxes(
-        tickfont=dict(size=13, color="#263B53"),
-        title_font=dict(size=14, color="#12345A"),
-        gridcolor="#E7EDF4", zerolinecolor="#C9D5E2",
-        showline=True, linecolor="#C9D5E2", automargin=True,
+        tickfont=dict(size=13, color=TEXTO_SECUNDARIO),
+        title_font=dict(size=14, color=TEXTO),
+        gridcolor=BORDE, zerolinecolor=BORDE,
+        showline=True, linecolor=BORDE, automargin=True,
     )
     fig.update_yaxes(
-        tickfont=dict(size=13, color="#263B53"),
-        title_font=dict(size=14, color="#12345A"),
-        gridcolor="#E7EDF4", zerolinecolor="#C9D5E2",
+        tickfont=dict(size=13, color=TEXTO_SECUNDARIO),
+        title_font=dict(size=14, color=TEXTO),
+        gridcolor=BORDE, zerolinecolor=BORDE,
         showline=False, automargin=True,
     )
     for tr in fig.data:
@@ -105,7 +124,7 @@ def grafico_medidor(valor, maximo, titulo, decimales=0):
             "threshold": {"line": {"color": DORADO, "width": 4}, "thickness": 0.8, "value": maximo},
         },
     ))
-    fig.update_layout(height=200, margin=dict(l=25, r=25, t=55, b=5), paper_bgcolor="white",
+    fig.update_layout(height=200, margin=dict(l=25, r=25, t=55, b=5), paper_bgcolor=SUPERFICIE,
                       font=dict(family="Inter, Arial, sans-serif"))
     return fig
 
@@ -357,6 +376,146 @@ st.markdown(
         transform: translateY(-2px) !important;
         box-shadow: 0 6px 20px rgba(26, 58, 92, 0.4) !important;
         border-color: #FFD700 !important;
+    }}
+
+    /* ========================================================
+       DISEÑO RESPONSIVE PARA TABLETAS Y TELÉFONOS
+       Streamlit ya gestiona el drawer del sidebar; aquí se
+       reorganiza el contenido principal para evitar controles
+       comprimidos y tarjetas ilegibles en pantallas estrechas.
+       ======================================================== */
+    @media (max-width: 768px) {{
+        [data-testid="stAppViewContainer"] .main .block-container {{
+            padding: 0.75rem 0.75rem 2rem !important;
+            max-width: 100% !important;
+        }}
+
+        [data-testid="stHeader"] {{
+            height: 2.75rem !important;
+        }}
+
+        /* Cada grupo de columnas pasa a ocupar todo el ancho. */
+        [data-testid="stHorizontalBlock"] {{
+            flex-wrap: wrap !important;
+            gap: 0.75rem !important;
+            align-items: stretch !important;
+        }}
+
+        [data-testid="stHorizontalBlock"] > [data-testid="column"] {{
+            flex: 1 1 100% !important;
+            min-width: 100% !important;
+            width: 100% !important;
+        }}
+
+        .encabezado {{
+            padding: 1.1rem 1rem !important;
+            border-radius: 12px !important;
+            margin-bottom: 1rem !important;
+        }}
+
+        .encabezado h1 {{
+            font-size: clamp(1.25rem, 6vw, 1.7rem) !important;
+            line-height: 1.2 !important;
+        }}
+
+        .encabezado p {{
+            font-size: 0.78rem !important;
+            line-height: 1.45 !important;
+        }}
+
+        .tarjeta, .perfil {{
+            padding: 0.9rem !important;
+            min-height: auto !important;
+        }}
+
+        .tarjeta .valor {{
+            font-size: clamp(1.7rem, 9vw, 2.2rem) !important;
+        }}
+
+        .seccion {{
+            padding: 0.7rem 0.8rem !important;
+            margin: 0.9rem 0 0.7rem !important;
+            font-size: 1rem !important;
+        }}
+
+        .perfil-nombre {{
+            font-size: 1.05rem !important;
+            overflow-wrap: anywhere !important;
+        }}
+
+        /* Objetivos táctiles cómodos y texto que no se desborda. */
+        .stButton button, [data-testid="stDownloadButton"] button {{
+            min-height: 2.75rem !important;
+            white-space: normal !important;
+            line-height: 1.25 !important;
+            padding: 0.65rem 0.8rem !important;
+        }}
+
+        [data-testid="stRadio"] label {{
+            min-height: 2.65rem !important;
+            display: flex !important;
+            align-items: center !important;
+        }}
+
+        /* Gráficos y tablas se mantienen dentro del viewport. */
+        [data-testid="stPlotlyChart"], [data-testid="stDataFrame"],
+        [data-testid="stTable"] {{
+            max-width: 100% !important;
+            overflow-x: auto !important;
+        }}
+
+        [data-testid="stDataFrame"] {{
+            border-radius: 12px !important;
+        }}
+
+        [data-testid="stDataFrame"] [role="grid"] {{
+            font-size: 0.75rem !important;
+        }}
+
+        [data-testid="stMetric"] {{
+            padding: 0.8rem !important;
+        }}
+
+        [data-testid="stMetricValue"] {{
+            font-size: 1.55rem !important;
+        }}
+
+        /* El drawer del sidebar usa todo el ancho útil del teléfono. */
+        [data-testid="stSidebar"] {{
+            width: min(88vw, 22rem) !important;
+        }}
+
+        [data-testid="stSidebar"] img {{
+            max-height: 8rem !important;
+            object-fit: contain !important;
+        }}
+
+        [data-testid="stSidebar"] [data-testid="stMultiSelect"] input,
+        [data-testid="stSidebar"] [data-testid="stTextInput"] input {{
+            font-size: 1rem !important;
+        }}
+    }}
+
+    @media (max-width: 420px) {{
+        html, body, [class*="css"] {{
+            font-size: 14px !important;
+        }}
+
+        [data-testid="stAppViewContainer"] .main .block-container {{
+            padding-left: 0.6rem !important;
+            padding-right: 0.6rem !important;
+        }}
+
+        div[data-testid="stExpander"] details summary {{
+            padding: 0.8rem !important;
+            font-size: 0.82rem !important;
+        }}
+
+        .ranking-card-description {{
+            min-height: auto !important;
+            padding: 0.8rem !important;
+            font-size: 0.78rem !important;
+        }}
     }}
     </style>
     """,
@@ -654,8 +813,11 @@ def cargar_y_preparar(pantalla):
         rnmc = pd.DataFrame(columns=["_ID_CLAVE", "FECHA_RNMC"])
 
     # TURNOS: cada registro es un turno cumplido por el funcionario
+    # El panel principal también necesita los turnos para identificar
+    # funcionarios sin actividad operativa y ordenar el resultado por carga
+    # de servicio. El módulo de seguimiento conserva el mismo dataset.
     turnos = (limpiar_dataframe(cargar_turnos())
-              if es_seguimiento else pd.DataFrame())
+              if es_seguimiento or es_panel_principal else pd.DataFrame())
     if not turnos.empty:
         mapa_columnas_turnos = {
             "unidad": "UNIDAD",
@@ -1656,6 +1818,81 @@ def calcular_turnos(inicio_t, fin_t, unidades_sel_t, cargos_sel_t, cedula_busque
     return turnos_f, resumen
 
 
+def construir_resumen_sin_actividad(inicio_t, fin_t, estaciones_sel_t, grados_sel_t,
+                                    cedula_busqueda_t, nombre_busqueda_t):
+    """Cruza los funcionarios con turnos frente a las capturas del periodo."""
+    if turnos.empty or "_ID_CLAVE" not in turnos.columns:
+        return pd.DataFrame()
+
+    turnos_base = turnos.copy()
+    mask = turnos_base["_ID_CLAVE"].astype(str).str.strip().ne("")
+    if inicio_t is not None and fin_t is not None:
+        fecha = turnos_base["FECHA_DIA"]
+        mask &= fecha.isna() | ((fecha >= pd.Timestamp(inicio_t)) &
+                                (fecha <= pd.Timestamp(fin_t)))
+
+    # Los filtros generales de grado, estación y cédula también delimitan el
+    # universo de funcionarios mostrado en este ranking.
+    maestros_base = maestros.copy()
+    if estaciones_sel_t:
+        maestros_base = maestros_base[maestros_base["ESTACION"].isin(estaciones_sel_t)]
+    if grados_sel_t:
+        maestros_base = maestros_base[maestros_base["GRADO"].isin(grados_sel_t)]
+    if cedula_busqueda_t:
+        patron_cedula = re.escape(normalizar_id(cedula_busqueda_t))
+        maestros_base = maestros_base[
+            maestros_base["_ID_CLAVE"].astype(str).str.contains(patron_cedula, na=False)
+        ]
+
+    ids_permitidos = set(maestros_base["_ID_CLAVE"].astype(str))
+    mask &= turnos_base["_ID_CLAVE"].astype(str).isin(ids_permitidos)
+    if nombre_busqueda_t:
+        patron_nombre = re.escape(nombre_busqueda_t)
+        mask &= (turnos_base["_TEXTO_A"].str.contains(patron_nombre, na=False) |
+                 turnos_base["_TEXTO_B"].str.contains(patron_nombre, na=False))
+
+    turnos_filtrados = turnos_base[mask]
+    if turnos_filtrados.empty:
+        return pd.DataFrame()
+
+    ordenado = turnos_filtrados.sort_values("FECHA_DIA", kind="stable")
+    resumen = ordenado.groupby("_ID_CLAVE", dropna=False).agg(
+        **{
+            "Nombre desde turnos": ("NOMBRE_COMPLETO", "last"),
+            "Unidad": ("UNIDAD", "last"),
+            "Turnos": ("_ID_CLAVE", "size"),
+            "Primer turno": ("FECHA_DIA", "min"),
+            "Ultimo turno": ("FECHA_DIA", "max"),
+        }
+    ).reset_index()
+
+    if not operatividad_f.empty:
+        operaciones = operatividad_f.copy()
+        operaciones["CAPTURAS"] = pd.to_numeric(
+            operaciones.get("TOTAL TIPO DE CAPTURA", 0), errors="coerce").fillna(0)
+        capturas = operaciones.groupby("_ID_CLAVE", dropna=False)["CAPTURAS"].sum().reset_index()
+    else:
+        capturas = pd.DataFrame(columns=["_ID_CLAVE", "CAPTURAS"])
+
+    resumen = resumen.merge(capturas, on="_ID_CLAVE", how="left")
+    datos_maestro = maestros_base[["_ID_CLAVE", "GRADO", "NOMBRE", "ESTACION"]].drop_duplicates("_ID_CLAVE")
+    resumen = resumen.merge(datos_maestro, on="_ID_CLAVE", how="left")
+    resumen["CAPTURAS"] = pd.to_numeric(resumen["CAPTURAS"], errors="coerce").fillna(0).round().astype(int)
+    resumen["Grado, nombres y apellidos"] = (
+        resumen["GRADO"].fillna("").astype(str).str.strip() + " " +
+        resumen["NOMBRE"].fillna("").astype(str).str.strip()
+    ).str.replace(r"\s+", " ", regex=True).str.strip()
+    resumen["Grado, nombres y apellidos"] = resumen["Grado, nombres y apellidos"].where(
+        resumen["Grado, nombres y apellidos"].ne(""), resumen["Nombre desde turnos"])
+    for columna in ("Primer turno", "Ultimo turno"):
+        resumen[columna] = resumen[columna].dt.strftime("%d/%m/%Y").fillna("")
+
+    return resumen[["_ID_CLAVE", "Grado, nombres y apellidos", "Unidad", "ESTACION",
+                    "Turnos", "CAPTURAS", "Primer turno", "Ultimo turno"]].sort_values(
+                        ["Turnos", "Grado, nombres y apellidos"], ascending=[False, True]
+                    ).reset_index(drop=True)
+
+
 # ============================================================
 # VISTA INDEPENDIENTE DE FICHA (se abre en una pestaña nueva)
 # ============================================================
@@ -1702,7 +1939,9 @@ if pantalla == "Panel principal":
     @media (prefers-reduced-motion: reduce) { .ranking-card-description .description-label { animation:none; } .ranking-card-description, .ranking-card-description:hover { transition:none; transform:none; } }
     div.st-key-ranking_card_capturas button { min-height:112px; width:100%; white-space:pre-wrap; text-align:left; border-radius:18px; border:1px solid #D6E2EF; background:linear-gradient(145deg,#FFFFFF 0%,#EEF4FA 100%); color:#12345A; font-size:15px; font-weight:800; line-height:1.45; padding:18px 16px; box-shadow:0 6px 18px rgba(18,52,90,.08); transition:all .2s ease; }
     div.st-key-ranking_card_capturas button:hover { border-color:#12345A; transform:translateY(-3px); box-shadow:0 12px 24px rgba(18,52,90,.15); }
-    div.st-key-ranking_card_delitos button, div.st-key-ranking_card_homicidios button { min-height:112px; width:100%; white-space:pre-wrap; text-align:left; border-radius:18px; border:1px solid #6E1727; background:linear-gradient(135deg,#651525 0%,#851D32 58%,#3D101B 100%); color:#FFFFFF; font-size:15px; font-weight:800; line-height:1.45; padding:18px 16px; box-shadow:0 7px 20px rgba(72,12,28,.19); transition:all .2s ease; }
+     div.st-key-ranking_card_delitos button, div.st-key-ranking_card_homicidios button { min-height:112px; width:100%; white-space:pre-wrap; text-align:left; border-radius:18px; border:1px solid #6E1727; background:linear-gradient(135deg,#651525 0%,#851D32 58%,#3D101B 100%); color:#FFFFFF; font-size:15px; font-weight:800; line-height:1.45; padding:18px 16px; box-shadow:0 7px 20px rgba(72,12,28,.19); transition:all .2s ease; }
+     div.st-key-ranking_card_sin_actividad button { min-height:112px; width:100%; white-space:pre-wrap; text-align:left; border-radius:18px; border:1px solid #B9D6C7; background:linear-gradient(145deg,#FFFFFF 0%,#ECF8F0 100%); color:#14532D; font-size:15px; font-weight:800; line-height:1.45; padding:18px 16px; box-shadow:0 6px 18px rgba(25,135,84,.10); transition:all .2s ease; }
+     div.st-key-ranking_card_sin_actividad button:hover { border-color:#198754; transform:translateY(-3px); box-shadow:0 12px 24px rgba(25,135,84,.16); }
     div.st-key-ranking_card_delitos button:hover, div.st-key-ranking_card_homicidios button:hover { border-color:#B88A50; transform:translateY(-3px); box-shadow:0 13px 27px rgba(72,12,28,.27); background:linear-gradient(135deg,#7A192C 0%,#9A2439 58%,#4A111F 100%); color:#FFFFFF; }
     .ranking-panel-carmesi { border:1px solid #D9B7BE; border-left:5px solid #7A192C; background:linear-gradient(135deg,#F7F0F1 0%,#FFFFFF 78%); border-radius:16px; padding:17px 18px 8px; margin:8px 0 18px; }
     .ranking-panel-azul { border:1px solid #D6E2EF; border-left:5px solid #12345A; background:linear-gradient(135deg,#F1F5FA 0%,#FFFFFF 78%); border-radius:16px; padding:17px 18px 8px; margin:8px 0 18px; }
@@ -1715,7 +1954,7 @@ if pantalla == "Panel principal":
     if "ranking_principal_activo" not in st.session_state:
         st.session_state["ranking_principal_activo"] = None
 
-    r1, r2, r3 = st.columns(3, gap="medium")
+    r1, r2, r3, r4 = st.columns(4, gap="medium")
     with r1:
         if st.button("  01 · TOP 10\nFuncionarios por total de tipo de captura", key="ranking_card_capturas",
                      width="stretch"):
@@ -1740,6 +1979,15 @@ if pantalla == "Panel principal":
             "<div class='ranking-card-description carmesi'><span class='description-label'>¿Qué encontrará en esta opción?</span>Identifique a los funcionarios vinculados con el mayor número de registros de homicidio.</div>",
             unsafe_allow_html=True)
 
+    with r4:
+        if st.button("04 - POLICIAS\nSIN ACTIVIDAD OPERATIVA", key="ranking_card_sin_actividad",
+                     width="stretch"):
+            st.session_state["ranking_principal_activo"] = None if st.session_state[
+                "ranking_principal_activo"] == "sin_actividad" else "sin_actividad"
+        st.markdown(
+            "<div class='ranking-card-description'><span class='description-label'>Que encontrara en esta opcion?</span>Ordene por cantidad de turnos a los funcionarios con cero o pocas capturas y consulte cada grupo.</div>",
+            unsafe_allow_html=True)
+
     ranking_activo = st.session_state["ranking_principal_activo"]
     if ranking_activo == "capturas":
         st.markdown(
@@ -1757,6 +2005,56 @@ if pantalla == "Panel principal":
             "<div class='ranking-panel-carmesi'><div class='ranking-panel-title'>03 · TOP 10 FUNCIONARIOS CON MÁS HOMICIDIOS</div></div>",
             unsafe_allow_html=True)
         mostrar_ranking_tarjetas(ranking_homicidios, "CASOS", "homicidios", "No se encontraron registros de homicidio.")
+
+    elif ranking_activo == "sin_actividad":
+        st.markdown(
+            "<div class='ranking-panel-azul'><div style='font-size:19px;font-weight:800;color:#12345A;'>04 - FUNCIONARIOS POR TURNOS Y CAPTURAS</div><div style='font-size:13px;color:#526174;margin-top:5px;'>Incluye quienes tienen cero capturas. El orden principal es de mayor a menor cantidad de turnos.</div></div>",
+            unsafe_allow_html=True)
+        resumen_baja = construir_resumen_sin_actividad(
+            inicio, fin, tuple(estaciones_sel), tuple(grados_sel), cedula_busqueda, nombre_busqueda
+        )
+        if resumen_baja.empty:
+            st.info("No se encontraron funcionarios con turnos para los filtros seleccionados.")
+        else:
+            filtro_capturas = st.selectbox(
+                "Filtrar por cantidad de capturas",
+                options=["Todas", *[str(i) for i in range(11)], "10 o mas"],
+                format_func=lambda opcion: {
+                    "Todas": "Todas las cantidades",
+                    "0": "0 capturas - sin actividad operativa",
+                    "10 o mas": "10 o m\u00e1s capturas",
+                }.get(opcion, f"{opcion} captura" if opcion == "1" else f"{opcion} capturas"),
+                key="filtro_capturas_sin_actividad",
+            )
+            busqueda_baja = st.text_input(
+                "Buscar en este listado",
+                placeholder="Nombre, grado, c\u00e9dula o unidad...",
+                key="busqueda_policias_sin_actividad",
+            ).strip().casefold()
+            resultado_baja = resumen_baja.copy()
+            if filtro_capturas != "Todas":
+                if filtro_capturas == "10 o mas":
+                    resultado_baja = resultado_baja[resultado_baja["CAPTURAS"] >= 10]
+                else:
+                    resultado_baja = resultado_baja[resultado_baja["CAPTURAS"] == int(filtro_capturas)]
+            if busqueda_baja:
+                texto_busqueda = resultado_baja.astype(str).agg(" ".join, axis=1).str.casefold()
+                resultado_baja = resultado_baja[texto_busqueda.str.contains(re.escape(busqueda_baja), na=False)]
+            st.caption(f"{len(resultado_baja):,} funcionarios encontrados - ordenados por turnos descendentes.")
+            st.dataframe(
+                resultado_baja.drop(columns=["_ID_CLAVE", "ESTACION"], errors="ignore").rename(columns={
+                    "Grado, nombres y apellidos": "Funcionario",
+                    "Unidad": "Unidad del ultimo turno",
+                    "CAPTURAS": "Capturas",
+                    "Ultimo turno": "Ultimo turno",
+                }),
+                width="stretch",
+                hide_index=True,
+                column_config={
+                    "Turnos": st.column_config.NumberColumn("Turnos", format="%d"),
+                    "Capturas": st.column_config.NumberColumn("Capturas", format="%d"),
+                },
+            )
 
     mostrar_ficha_seleccionada()
 
@@ -2610,6 +2908,127 @@ elif pantalla == "Seguimiento activación al servicio":
             if truncado:
                 st.caption(f"Se muestran los {limite_filas:,} turnos más recientes de {len(registros_t):,}. "
                            "Selecciona un funcionario para ver todos los suyos.")
+
+# ============================================================
+# CONTRASTE Y COMPATIBILIDAD CON MODO CLARO/OSCURO
+# ============================================================
+
+# Esta capa se deja al final para corregir también estilos específicos que
+# algunos paneles agregan después del estilo general de la aplicación.
+st.markdown(
+    f"""
+    <style>
+    :root {{
+        --app-bg: {FONDO};
+        --app-surface: {SUPERFICIE};
+        --app-surface-2: {SUPERFICIE_SECUNDARIA};
+        --app-text: {TEXTO};
+        --app-muted: {TEXTO_SECUNDARIO};
+        --app-border: {BORDE};
+        --app-table-alt: {FONDO_TABLA_ALTERNO};
+    }}
+
+    [data-testid="stAppViewContainer"],
+    [data-testid="stAppViewContainer"] .main,
+    [data-testid="stAppViewContainer"] .block-container {{
+        background: var(--app-bg) !important;
+        color: var(--app-text) !important;
+    }}
+
+    [data-testid="stAppViewContainer"] .main p,
+    [data-testid="stAppViewContainer"] .main li,
+    [data-testid="stAppViewContainer"] .main label,
+    [data-testid="stAppViewContainer"] .main [data-testid="stCaptionContainer"],
+    [data-testid="stAppViewContainer"] .main [data-testid="stMarkdownContainer"] {{
+        color: var(--app-text);
+    }}
+
+    [data-testid="stAppViewContainer"] .main h1,
+    [data-testid="stAppViewContainer"] .main h2,
+    [data-testid="stAppViewContainer"] .main h3,
+    [data-testid="stAppViewContainer"] .main h4,
+    [data-testid="stAppViewContainer"] .main h5,
+    [data-testid="stAppViewContainer"] .main h6 {{
+        color: var(--app-text) !important;
+    }}
+
+    /* Labels: evita el texto blanco sobre el fondo de la página. */
+    [data-testid="stAppViewContainer"] .main [data-testid="stSelectbox"] label,
+    [data-testid="stAppViewContainer"] .main [data-testid="stTextInput"] label,
+    [data-testid="stAppViewContainer"] .main [data-testid="stMultiSelect"] label,
+    [data-testid="stAppViewContainer"] .main [data-testid="stDateInput"] label,
+    [data-testid="stAppViewContainer"] .main [data-testid="stNumberInput"] label,
+    [data-testid="stAppViewContainer"] .main [data-testid="stDataFrame"] + div {{
+        color: var(--app-muted) !important;
+        font-weight: 600 !important;
+    }}
+
+    /* Selectbox, buscadores, textareas y otros controles. */
+    [data-testid="stAppViewContainer"] .main [data-baseweb="select"] > div,
+    [data-testid="stAppViewContainer"] .main [data-baseweb="input"],
+    [data-testid="stAppViewContainer"] .main textarea,
+    [data-testid="stAppViewContainer"] .main input {{
+        background: var(--app-surface-2) !important;
+        color: var(--app-text) !important;
+        border-color: var(--app-border) !important;
+    }}
+
+    [data-testid="stAppViewContainer"] .main input::placeholder,
+    [data-testid="stAppViewContainer"] .main textarea::placeholder {{
+        color: var(--app-muted) !important;
+        opacity: 0.9 !important;
+    }}
+
+    [data-baseweb="popover"],
+    [role="listbox"] {{
+        background: var(--app-surface) !important;
+        color: var(--app-text) !important;
+        border-color: var(--app-border) !important;
+    }}
+
+    [role="option"] {{ color: var(--app-text) !important; }}
+    [role="option"]:hover {{ background: var(--app-surface-2) !important; }}
+
+    /* Tarjetas, expanders y tablas de la aplicación. */
+    .tarjeta, .perfil, .seccion,
+    div[data-testid="stMetric"],
+    div[data-testid="stExpander"],
+    .ranking-card-description,
+    .ranking-panel-azul,
+    .ranking-panel-carmesi {{
+        background-color: var(--app-surface) !important;
+        color: var(--app-text) !important;
+        border-color: var(--app-border) !important;
+    }}
+
+    .tarjeta .etiqueta, .tarjeta .nota, .perfil-sub,
+    .ranking-intro, .ranking-card-description,
+    .ranking-panel-sub {{ color: var(--app-muted) !important; }}
+
+    [data-testid="stDataFrame"] {{
+        background: var(--app-surface) !important;
+        border-color: var(--app-border) !important;
+    }}
+    [data-testid="stDataFrame"] [role="gridcell"] {{
+        background: var(--app-surface) !important;
+        color: var(--app-text) !important;
+        border-bottom-color: var(--app-border) !important;
+    }}
+    [data-testid="stDataFrame"] [role="row"]:nth-child(even) [role="gridcell"] {{
+        background: var(--app-table-alt) !important;
+    }}
+    [data-testid="stDataFrame"] [role="columnheader"] {{
+        color: #FFFFFF !important;
+    }}
+
+    div[data-testid="stMetricLabel"] {{ color: var(--app-muted) !important; }}
+    div[data-testid="stMetricValue"] {{ color: var(--app-text) !important; }}
+    .encabezado h1, .header-mebar-title {{ color: #FFFFFF !important; }}
+    hr {{ border-color: var(--app-border) !important; }}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 # ============================================================
 # PIE
